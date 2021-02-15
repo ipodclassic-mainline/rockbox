@@ -195,6 +195,7 @@ static struct clocking_mode clk_modes[] =
 
 enum {
     CLK_BOOST = 0,
+    //CLK_LOW_BOOST = N_CLK_MODES - 2,
     CLK_UNBOOST = N_CLK_MODES - 1,
 };
 
@@ -262,13 +263,13 @@ void set_cpu_frequency(long frequency)
 
     if (frequency == CPUFREQ_MAX)
     {
-        pmu_write(0x1e, 0x13);  /* Vcore = 1100 mV */
+        pmu_write(0x1e, 0x10);  /* Vcore = 1100 mV */
         set_clocking_level(CLK_BOOST);
     }
     else
     {
         set_clocking_level(CLK_UNBOOST);
-        pmu_write(0x1e, 0xf);   /* Vcore = 1000 mV */
+        pmu_write(0x1e, 0xc);   /* Vcore < 1000 mV */
     }
 
     cpu_frequency = frequency;

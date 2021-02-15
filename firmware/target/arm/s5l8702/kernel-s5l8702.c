@@ -7,7 +7,7 @@
  *                     \/            \/     \/    \/            \/
  * $Id: kernel-s5l8700.c 28795 2010-12-11 17:52:52Z Buschel $
  *
- * Copyright © 2009 Bertrik Sikken
+ * Copyright ï¿½ 2009 Bertrik Sikken
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

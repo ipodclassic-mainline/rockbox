@@ -27,6 +27,7 @@
 
 #include "inttypes.h"
 #include "cpu.h"
+#include "tick.h"
 #include "system.h"
 #include "lcd.h"
 #include "../kernel-internal.h"
@@ -76,6 +77,7 @@
 #define LCD_REDORANGE   LCD_RGBPACK(255,70,0)
 
 extern void bss_init(void);
+extern void jump_linux();
 extern uint32_t _movestart;
 extern uint32_t start_loc;
 
@@ -324,12 +326,21 @@ static bool pmu_is_hibernated(void)
  *  t5 = ~2800,~3000 ms.
  *     rockbox.ipod is executed.
  */
+
+void linux_debug(void) {
+    SWRCON = 0b10100101;
+}
+
+
 void main(void)
 {
 //    int fw = FW_ROCKBOX;
     int rc = 0;
     unsigned char *loadbuffer;
+    unsigned char *dtb_buffer;
     int (*kernel_entry)(void);
+    char* bootfile = BOOTFILE;
+    char* dtb = "devicetree.dtb";
 
     usec_timer_init();
 
@@ -337,7 +348,6 @@ void main(void)
     i2c_preinit(0);
 
     if (pmu_is_hibernated()) {
-//        fw = FW_APPLE;
         rc = launch_onb(1); /* 27/2 = 13.5 MHz. */
     }
 
@@ -359,6 +369,8 @@ void main(void)
     serial_setup();
 #endif
 
+    bool boot_linux = false;
+
     button_init();
     if (rc == 0) {
         /* User button selection timeout */
@@ -370,6 +382,10 @@ void main(void)
                 sleep(HZ/10);
             sleep(HZ);
             btn = button_read_device();
+        }
+        /* Boot Linux instead! */
+        if (btn == BUTTON_RIGHT) {
+            boot_linux = true;
         }
         /* Enter OF, diagmode and diskmode using ONB */
         if ((btn == BUTTON_MENU)
@@ -410,7 +426,6 @@ void main(void)
 
         /* We wait until HDD spins up to check for hold button */
         if (button_hold()) {
-//            fw = FW_APPLE;
             printf("Executing OF...");
             ata_sleepnow();
             rc = kernel_launch_onb();
@@ -434,25 +449,51 @@ void main(void)
         fatal_error(ERR_RB);
     }
 
-    printf("Loading Rockbox...");
+    if (boot_linux) {
+        printf("Booting Linux!");
+        bootfile = "zImage-dtb";
+        // We load the dtb into IRAM1
+        dtb_buffer = (unsigned char*)(0xb200000); // DRAM_ORIG+50MB
+        rc = load_firmware(dtb_buffer, dtb, 1*2024*1024);
+    }
+    else {
+        printf("Loading Rockbox...");
+    }
+    
     loadbuffer = (unsigned char *)DRAM_ORIG;
-    rc = load_firmware(loadbuffer, BOOTFILE, MAX_LOADSIZE);
+    rc = load_firmware(loadbuffer, bootfile, MAX_LOADSIZE);
 
     if (rc <= EFILE_EMPTY) {
         printf("Error!");
-        printf("Can't load " BOOTFILE ": ");
+        printf("Can't load %s", bootfile);
         printf(loader_strerror(rc));
         fatal_error(ERR_RB);
     }
 
-    printf("Rockbox loaded.");
+    printf("Image loaded.");
+    // printf("Registering debug kernel tick task");
+    // tick_add_task(linux_debug);
 
     /* If we get here, we have a new firmware image at 0x08000000, run it */
     disable_irq();
 
     kernel_entry = (void*) loadbuffer;
-    commit_discard_idcache();
-    rc = kernel_entry();
+    commit_discard_idcache(); // Does nothing on ipod? 
+    /* DEBUG: print the kernel header */
+    if (boot_linux) {
+        printf("Kernel at address: 0x%x", kernel_entry);
+    }
+    printf("Booting kernel");
+    if (boot_linux) {
+        jump_linux();
+        // register int r0 asm("r0") = 0x0;
+        // register int r1 asm("r1") = 0xffffffff;
+        // register int r2 asm("r2") = 0x60fd0000; // DTB offset = DRAM_ORIG+MAX_LOADSIZE
+        // rc = kernel_entry();
+    } else {
+        rc = kernel_entry();
+    }
+    //printf("yooooooooooooooooooooooooo lets fucking gooooooooooooooooooooooo");
 
     /* End stop - should not get here */
     enable_irq();

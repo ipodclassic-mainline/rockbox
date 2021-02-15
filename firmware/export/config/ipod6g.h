@@ -105,7 +105,8 @@
 
 /* define this if you have a disk storage, i.e. something
    that needs spinups and can cause skips when shaked */
-#define HAVE_DISK_STORAGE
+// Maybe faster disabled with iflash
+//#define HAVE_DISK_STORAGE
 
 /* Define this to enable morse code input */
 #define HAVE_MORSE_INPUT
@@ -142,7 +143,7 @@
 /* 6g has a standard battery of 550mAh, except for the thick 6g (2007 160gb) which has a standard battery of 850mAh */
 #define BATTERY_CAPACITY_DEFAULT 550 /* default battery capacity */
 #define BATTERY_CAPACITY_MIN     300 /* min. capacity selectable */
-#define BATTERY_CAPACITY_MAX     1000 /* max. capacity selectable */
+#define BATTERY_CAPACITY_MAX     3000 /* max. capacity selectable */
 #define BATTERY_CAPACITY_INC      10 /* capacity increment */
 #define BATTERY_TYPES_COUNT        1 /* only one type */
 
@@ -253,13 +254,15 @@
 
 /* Serial */
 #ifdef BOOTLOADER
-#if 0 /* Enable/disable LOGF_SERIAL for bootloader */
+//#if 1 /* Enable/disable LOGF_SERIAL for bootloader */
 #define HAVE_SERIAL
 #define ROCKBOX_HAS_LOGF
 #define LOGF_SERIAL
-#endif
+//#endif
 #else /* !BOOTLOADER */
 #define HAVE_SERIAL
+#define ROCKBOX_HAS_LOGF
+#define LOGF_SERIAL
 /* Disable iAP when LOGF_SERIAL is enabled to avoid conflicts */
 #ifndef LOGF_SERIAL
 #define IPOD_ACCESSORY_PROTOCOL

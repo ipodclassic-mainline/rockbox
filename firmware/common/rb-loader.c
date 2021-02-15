@@ -162,11 +162,11 @@ static int load_firmware_filename(unsigned char* buf,
         goto end;
     }
 
-    if (!verify_checksum(chksum, buf, len))
-    {
-        ret = EBAD_CHKSUM;
-        goto end;
-    }
+    // if (!verify_checksum(chksum, buf, len))
+    // {
+    //     ret = EBAD_CHKSUM;
+    //     goto end;
+    // }
     ret = len;
 
 end:

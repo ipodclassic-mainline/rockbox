@@ -43,6 +43,9 @@
 #else
 #include "rb-loader.h"
 #endif
+#ifdef HAVE_SERIAL
+#include "serial.h"
+#endif
 
 /* TODO: Other bootloaders need to be adjusted to set this variable to true
    on a button press - currently only the ipod, H10, Vibe 500 and Sansa versions do. */
@@ -88,6 +91,11 @@ int printf(const char *format, ...)
     ptr = printfbuf;
     len = vsnprintf(ptr, sizeof(printfbuf), format, ap);
     va_end(ap);
+
+#ifdef HAVE_SERIAL
+    serial_tx(ptr);
+    serial_tx("\n");
+#endif
 
     lcd_puts(0, line++, ptr);
     if (verbose)

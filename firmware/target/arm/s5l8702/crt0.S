@@ -197,4 +197,22 @@ bss_init:
 
     ldmpc   regs=r4-r9
     .ltorg
+
+    /* Jump to Linux kernel */
+    .global jump_linux
+    .p2align 2
+    .type jump_linux, %function
+
+// This function doesn't return.
+jump_linux:
+    //stmfd   sp!, {r4-r9,lr}
+    //mov     r4, r0 //  r0 should be the kernel load addres
+
+    mov     r0, #0x0
+    mov     r1, #0xffffffff
+    mov     r2, #0xb200000 // Currently, just hard code the dtb address
+
+    mov     r6, #0x8000000
+    bx      r6
+
 #endif
