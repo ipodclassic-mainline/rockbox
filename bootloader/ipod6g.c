@@ -77,7 +77,7 @@
 #define LCD_REDORANGE   LCD_RGBPACK(255,70,0)
 
 extern void bss_init(void);
-extern void jump_linux();
+extern void jump_linux(size_t kern_addr, size_t dtb_addr);
 extern uint32_t _movestart;
 extern uint32_t start_loc;
 
@@ -332,6 +332,7 @@ void linux_debug(void) {
 }
 
 
+#define DTB_LOC 0xa000000
 void main(void)
 {
 //    int fw = FW_ROCKBOX;
@@ -339,8 +340,6 @@ void main(void)
     unsigned char *loadbuffer;
     unsigned char *dtb_buffer;
     int (*kernel_entry)(void);
-    char* bootfile = BOOTFILE;
-    char* dtb = "devicetree.dtb";
 
     usec_timer_init();
 
@@ -449,54 +448,67 @@ void main(void)
         fatal_error(ERR_RB);
     }
 
+    loadbuffer = (unsigned char *)DRAM_ORIG;
+
     if (boot_linux) {
         printf("Booting Linux!");
-        bootfile = "zImage-dtb";
-        // We load the dtb into IRAM1
-        dtb_buffer = (unsigned char*)(0xb200000); // DRAM_ORIG+50MB
-        rc = load_firmware(dtb_buffer, dtb, 1*2024*1024);
+
+        rc = load_file(loadbuffer, "/.rockbox/zImage", MAX_LOADSIZE);
+        if (rc <= EFILE_EMPTY) {
+            printf("Error!");
+            printf("Failed to load zImage");
+            fatal_error(ERR_RB);
+        } else {
+            printf("Kernel loaded successfully! rc=%d", rc);
+        }
+
+        dtb_buffer = (unsigned char*)DTB_LOC; // The end of RAM used by decompressed kernel + some extra
+        rc = load_file(dtb_buffer, "/.rockbox/s5l8702-apple-ipod6g.dtb", 2*2024*1024); // 2MB (dtb is only 1k)
+        if (rc <= EFILE_EMPTY) {
+            printf("Error!");
+            printf("Failed to load s5l8702-apple-ipod6g.dtb");
+            fatal_error(ERR_RB);
+        } else {
+            printf("DTB loaded successfully! rc=%d", rc);
+        }
+        size_t i = 0;
+        
+        printf("Wrote %d bytes", i);
+        for(i = 0; i < 177; i+=8) {
+            printf("%02x%02x %02x%02x %02x%02x %02x%02x",
+            dtb_buffer[i], dtb_buffer[i+1], dtb_buffer[i+2], dtb_buffer[i+3],
+            dtb_buffer[i+4], dtb_buffer[i+5], dtb_buffer[i+6], dtb_buffer[i+7]);
+        }
+        
     }
     else {
         printf("Loading Rockbox...");
-    }
-    
-    loadbuffer = (unsigned char *)DRAM_ORIG;
-    rc = load_firmware(loadbuffer, bootfile, MAX_LOADSIZE);
-
-    if (rc <= EFILE_EMPTY) {
-        printf("Error!");
-        printf("Can't load %s", bootfile);
-        printf(loader_strerror(rc));
-        fatal_error(ERR_RB);
+        rc = load_firmware(loadbuffer, BOOTFILE, MAX_LOADSIZE);
+        if (rc <= EFILE_EMPTY) {
+            printf("Error!");
+            printf("Can't load %s", BOOTFILE);
+            printf(loader_strerror(rc));
+            fatal_error(ERR_RB);
+        }
     }
 
     printf("Image loaded.");
-    // printf("Registering debug kernel tick task");
-    // tick_add_task(linux_debug);
 
     /* If we get here, we have a new firmware image at 0x08000000, run it */
     disable_irq();
 
     kernel_entry = (void*) loadbuffer;
     commit_discard_idcache(); // Does nothing on ipod? 
-    /* DEBUG: print the kernel header */
-    if (boot_linux) {
-        printf("Kernel at address: 0x%x", kernel_entry);
-    }
+
     printf("Booting kernel");
     if (boot_linux) {
-        jump_linux();
-        // register int r0 asm("r0") = 0x0;
-        // register int r1 asm("r1") = 0xffffffff;
-        // register int r2 asm("r2") = 0x60fd0000; // DTB offset = DRAM_ORIG+MAX_LOADSIZE
-        // rc = kernel_entry();
+        jump_linux(DRAM_ORIG, DTB_LOC); //0x09800000);
     } else {
         rc = kernel_entry();
     }
-    //printf("yooooooooooooooooooooooooo lets fucking gooooooooooooooooooooooo");
 
     /* End stop - should not get here */
     enable_irq();
-    printf("ERR: Failed to boot");
+    printf("ERR: Failed to boot, halt");
     while(1);
 }

@@ -205,14 +205,10 @@ bss_init:
 
 // This function doesn't return.
 jump_linux:
-    //stmfd   sp!, {r4-r9,lr}
-    //mov     r4, r0 //  r0 should be the kernel load addres
-
-    mov     r0, #0x0
-    mov     r1, #0xffffffff
-    mov     r2, #0xb200000 // Currently, just hard code the dtb address
-
-    mov     r6, #0x8000000
-    bx      r6
+    mov     r4, r0 // copy kernel addr to r4
+    eor     r0, r0, r0 // xor out r0
+    mov     r2, r1 // copy dtb addr into r2
+    mvn     r1, #0 // mov not 0 into r1 (all ones)
+    bx      r4 // branch
 
 #endif

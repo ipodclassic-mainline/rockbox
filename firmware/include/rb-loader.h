@@ -18,6 +18,7 @@
  *
  ****************************************************************************/
 
+int load_file(unsigned char* buf, const char* firmware, int buffer_size);
 int load_firmware(unsigned char* buf, const char* firmware, int buffer_size);
 
 #ifdef HAVE_MULTIBOOT /* defined by config.h */
