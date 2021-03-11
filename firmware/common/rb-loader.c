@@ -117,6 +117,36 @@ int get_redirect_dir(char* buf, int buffer_size, int volume,
 }
 #endif /* HAVE_MULTIBOOT */
 
+int load_file(unsigned char* buf, const char* filename,
+                     int buffer_size)
+{
+    int len;
+    int ret;
+    int fd = open(filename, O_RDONLY);
+
+    if (fd < 0)
+        return EFILE_NOT_FOUND;
+
+    len = filesize(fd);
+
+    if (len > buffer_size)
+    {
+        ret = EFILE_TOO_BIG;
+        goto end;
+    }
+
+    if (read(fd, buf, len) < len)
+    {
+        ret = EREAD_IMAGE_FAILED;
+        goto end;
+    }
+    ret = len;
+
+end:
+    close(fd);
+    return ret;
+}
+
 /* loads a firmware file from supplied filename
  * file opened, checks firmware size and checksum
  * if no error, firmware loaded to supplied buffer
