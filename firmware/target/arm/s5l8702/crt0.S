@@ -197,4 +197,22 @@ bss_init:
 
     ldmpc   regs=r4-r9
     .ltorg
+
+/* Jump to Linux kernel 
+ * 
+ * This function follows the spec for
+ * booting linux on ARM devices.
+ */
+    .global jump_linux
+    .p2align 2
+    .type jump_linux, %function
+
+// This function doesn't return.
+jump_linux:
+    mov     r4, r0 // copy kernel addr to r4
+    eor     r0, r0, r0 // xor out r0
+    mov     r2, r1 // copy dtb addr into r2
+    mvn     r1, #0 // mov not 0 into r1 (all ones)
+    bx      r4 // branch
+
 #endif

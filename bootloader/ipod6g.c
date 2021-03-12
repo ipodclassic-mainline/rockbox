@@ -71,11 +71,16 @@
    we set this to 8MB.
 */
 #define MAX_LOADSIZE (8*1024*1024)
+/* DTB load location
+ */
+#define DTB_LOC 0xa000000
+#define DTB_NAME "s5l8702-apple-ipod6g.dtb"
 
 #define LCD_RBYELLOW    LCD_RGBPACK(255,192,0)
 #define LCD_REDORANGE   LCD_RGBPACK(255,70,0)
 
 extern void bss_init(void);
+extern void jump_linux(size_t kern_addr, size_t dtb_addr);
 extern uint32_t _movestart;
 extern uint32_t start_loc;
 
@@ -329,7 +334,9 @@ void main(void)
 //    int fw = FW_ROCKBOX;
     int rc = 0;
     unsigned char *loadbuffer;
+    unsigned char *dtb_buffer;
     int (*kernel_entry)(void);
+    bool boot_linux = false;
 
     usec_timer_init();
 
@@ -371,6 +378,10 @@ void main(void)
             sleep(HZ);
             btn = button_read_device();
         }
+        /* Boot Linux instead! */
+        if (btn == BUTTON_RIGHT) {
+            boot_linux = true;
+        }
         /* Enter OF, diagmode and diskmode using ONB */
         if ((btn == BUTTON_MENU)
                 || (btn == (BUTTON_SELECT|BUTTON_LEFT))
@@ -410,7 +421,6 @@ void main(void)
 
         /* We wait until HDD spins up to check for hold button */
         if (button_hold()) {
-//            fw = FW_APPLE;
             printf("Executing OF...");
             ata_sleepnow();
             rc = kernel_launch_onb();
@@ -434,28 +444,61 @@ void main(void)
         fatal_error(ERR_RB);
     }
 
-    printf("Loading Rockbox...");
     loadbuffer = (unsigned char *)DRAM_ORIG;
-    rc = load_firmware(loadbuffer, BOOTFILE, MAX_LOADSIZE);
 
-    if (rc <= EFILE_EMPTY) {
-        printf("Error!");
-        printf("Can't load " BOOTFILE ": ");
-        printf(loader_strerror(rc));
-        fatal_error(ERR_RB);
+    if (boot_linux) {
+        printf("Booting Linux!");
+
+        rc = load_file(loadbuffer, "/.rockbox/zImage", MAX_LOADSIZE);
+        if (rc <= EFILE_EMPTY) {
+            printf("Error!");
+            printf("Failed to load zImage");
+            fatal_error(ERR_RB);
+        } else {
+            printf("Kernel loaded successfully! rc=%d", rc);
+        }
+
+        dtb_buffer = (unsigned char*)DTB_LOC;
+        rc = load_file(dtb_buffer, "/.rockbox/" DTB_NAME, 2*2024*1024); // 2MB (dtb is only 1k)
+        if (rc <= EFILE_EMPTY) {
+            printf("Error!");
+            printf("Failed to load " DTB_NAME);
+            fatal_error(ERR_RB);
+        } else {
+            printf("DTB loaded successfully! rc=%d", rc);
+        }
+        size_t i = 0;
+        
+        printf("Wrote %d bytes", i);
+    }
+    else {
+        printf("Loading Rockbox...");
+        rc = load_firmware(loadbuffer, BOOTFILE, MAX_LOADSIZE);
+        if (rc <= EFILE_EMPTY) {
+            printf("Error!");
+            printf("Can't load %s", BOOTFILE);
+            printf(loader_strerror(rc));
+            fatal_error(ERR_RB);
+        }
     }
 
-    printf("Rockbox loaded.");
+    printf("Image loaded.");
 
     /* If we get here, we have a new firmware image at 0x08000000, run it */
     disable_irq();
 
     kernel_entry = (void*) loadbuffer;
-    commit_discard_idcache();
-    rc = kernel_entry();
+    commit_discard_idcache(); // Does nothing on ipod? 
+
+    printf("Booting kernel");
+    if (boot_linux) {
+        jump_linux(DRAM_ORIG, DTB_LOC);
+    } else {
+        rc = kernel_entry();
+    }
 
     /* End stop - should not get here */
     enable_irq();
-    printf("ERR: Failed to boot");
+    printf("ERR: Failed to boot, halt");
     while(1);
 }
